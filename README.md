@@ -17,11 +17,28 @@ $ vagrant box add ubuntu/xenial64
 ```
 um box não esta necessariamente preso a um tipo de maquina virtual mas nesse caso usaremos uma restrita ao [virtualbox](https://www.virtualbox.org/wiki/Downloads) que aqui é chamado de `provider` sendo necessario realizar o download para poder executar o `box`.
 
-5. editar o aquivo `Vagrantfile`
+5. editar o aquivo `Vagrantfile` de odo a ficar igual a este ou fazer o download da configuração [provida](#link) 
 
 ```
 Vagrant.configure("2") do |config|
   config.vm.box = "ubuntu/xenial64"
+  config.vm.network "forwarded_port",guest: 8000, host: 8080, host_ip: "127.0.0.1"
+  config.vm.provision "shell", inline: <<-SHELL
+    sudo apt-get update
+    sudo apt-get install -y build-essential tcl
+    cd /tmp
+    
+    wget http://download.redis.io/releases/redis-4.0.8.tar.gz
+    tar xzf redis-4.0.8.tar.gz
+    cd redis-4.0.8
+    make
+    
+    sudo apt-get update
+    sudo apt-get install -y python3-pip
+    pip3 install --upgrade pip
+    cd "/vagrant"
+    pip3 install -r requeriments.txt
+  SHELL
 end
 ```
 6. No terminal execute os seguintes comandos para levantar o `box` no seu respectivo `provider` e iniciar uma sessão ssh com ele.
