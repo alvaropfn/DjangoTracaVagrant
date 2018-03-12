@@ -64,6 +64,9 @@ Vagrant.configure("2") do |config|
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
   config.vm.provision "shell", inline: <<-SHELL
+    
+    #### Instalando REDIS
+
     sudo apt-get update
     sudo apt-get install -y build-essential tcl
     cd /tmp
@@ -74,7 +77,9 @@ Vagrant.configure("2") do |config|
     sudo make install
     sudo mkdir /etc/redis
     sudo cp /tmp/redis-stable/redis.conf /etc/redis
-    echo "# If you run Redis from upstart or systemd, Redis can interact with your
+
+    echo "criando: /etc/redis/redis.conf"
+    sudo sh -c  "echo '# If you run Redis from upstart or systemd, Redis can interact with your
     # supervision tree. Options:
     #   supervised no      - no supervision interaction
     #   supervised upstart - signal upstart by putting Redis into SIGSTOP mode
@@ -82,13 +87,84 @@ Vagrant.configure("2") do |config|
     #   supervised auto    - detect upstart or systemd method based on
     #                        UPSTART_JOB or NOTIFY_SOCKET environment variables
     # Note: these supervision methods only signal "process is ready."
-    #       They do not enable continuous liveness pings back to your supervisor. supervised systemd" > /etc/redis/redis.conf
+    #       They do not enable continuous liveness pings back to your supervisor.
+    supervised systemd' > /etc/redis/redis.conf"
+    
+    echo "alterando: /etc/redis/redis.conf"
+    sudo sh -c  "echo '# The working directory.
+    #
+    # The DB will be written inside this directory, with the filename specified
+    # above using the 'dbfilename' configuration directive.
+    #
+    # The Append Only File will also be created inside this directory.
+    #
+    # Note that you must specify a directory here, not a file name.
+    dir /var/lib/redis' >> /etc/redis/redis.conf"
 
+
+    echo "criando: /etc/systemd/system/redis.service"
+    sudo sh -c  "echo '[Unit]
+    Description=Redis In-Memory Data Store
+    After=network.target
+    
+    [Service]
+    User=redis
+    Group=redis
+    ExecStart=/usr/local/bin/redis-server /etc/redis/redis.conf
+    ExecStop=/usr/local/bin/redis-cli shutdown
+    Restart=always
+    
+    [Install]
+    WantedBy=multi-user.target' > /etc/systemd/system/redis.service"
+
+    
+    sudo adduser --system --group --no-create-home redis
+    sudo mkdir /var/lib/redis
+    sudo chown redis:redis /var/lib/redis
+    sudo chmod 770 /var/lib/redis
+
+    sudo systemctl enable redis
+    sudo systemctl start redis
+
+    ####potencialmente incerto IN
+    ####potencialmente incerto OUT
+
+    #### Instalando Python
 
     sudo apt-get update
     sudo apt-get install -y python3-pip
     pip3 install --upgrade pip
     cd "/vagrant"
     pip3 install -r requeriments.txt
+
+    #### Instalando NGINX
+    sudo apt-get nginx supervisor 
+    sudo rm /etc/nginx/sites-enabled/default
+    
+    sudo sh -c  "echo 'server {
+      listen 80;
+      access_log /home/usuario/logs/access.log;
+      error_log /home/usuario/logs/error.log;
+     
+      server_name nome-site.com.br;
+     
+      location / {
+      proxy_pass http://127.0.0.1:8000; 
+     
+      #As proximas linhas passam o IP real para o gunicorn nao achar que sao acessos locais
+      proxy_pass_header Server;
+      proxy_set_header X-Forwarded-Host $server_name;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+     
+     
+      }
+     
+      location /static {
+     
+        alias /home/usuario/caminho_projeto/static/;
+     
+      }'> /etc/nginx/sites-available/djangotraca"
   SHELL
 end

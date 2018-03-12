@@ -55,3 +55,7 @@ este comando irá finalizar a conexao com o box mas a maquina ainda continuará 
 ```
 $ vagrant halt
 ```
+
+
+to write 
+sudo sh -c 'echo "agora vai" > sucesso.txt'
